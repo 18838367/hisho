@@ -150,14 +150,39 @@ def zdExclusionCircle(tMin, tMax, SNR, Sfloor, Dd, Dds, Ds, zd, Mset, plot=False
     return(ret1, ret2)
 
 
-def MFPSingularPopulation(Mset, fdm, burstParams, lensParams):
+#def MFPSingularPopulation(Mset, fdm, burstParams, lensParams):
+#    #mean free path to lensing from a population of black holes with one mass
+#    Mset=np.asarray(Mset)
+#    tMin, tMax, SNR, Sfloor=burstParams
+#    galaxyMass, galaxyRadius, Dd, Dds, Ds, zd=lensParams
+#    galaxyVolume=4.0/3.0*math.pi*galaxyRadius**3
+#    totalMM=galaxyMass*fdm
+#    numberDensity=totalMM/Mset/galaxyVolume 
+#    #print(numberDensity.shape)
+#                            #tMin, tMax, SNR, Sfloor, Dd, Dds, Ds, zd, Mset
+#    LA, UA=zdExclusionCircle(tMin, tMax, SNR, Sfloor, Dd, Dds, Ds, zd, Mset)
+#    Lsig=LA*math.pi/(60*60*180.0)*Dd*1e3
+#    Usig=UA*math.pi/(60*60*180.0)*Dd*1e3
+#    #print(Usig**2*numberDensity)
+#    crossSection=(math.pi*Usig**2)-(math.pi*Lsig**2)
+#    crossSection=crossSection*np.greater(crossSection,0)
+#    return (1.0/(numberDensity*crossSection))
+
+
+def NFWGalaxyOD(Mset, fdm, burstParams, lensParams):
     #mean free path to lensing from a population of black holes with one mass
     Mset=np.asarray(Mset)
     tMin, tMax, SNR, Sfloor=burstParams
-    galaxyMass, galaxyRadius, Dd, Dds, Ds, zd=lensParams
-    galaxyVolume=4.0/3.0*math.pi*galaxyRadius**3
-    totalMM=galaxyMass*fdm
-    numberDensity=totalMM/Mset/galaxyVolume 
+    virialMass, virialRadius, Dd, Dds, Ds, zd, impactP, traversdedPortion=lensParams
+    totalMM=virialMass*fdm
+    RNorm=impactP/virialRadius
+    c=7.67
+    Rs=virialRadius/c
+    if impactP>Rs:
+        Sigma=c**2.0*gFunc(c)/(2*math.pi)*totalMM/(virialRadius**2.0)*(1-np.abs(c**2.0*RNorm**2.0-1.0)**(-0.5)*np.cos(1.0/(c*RNorm)))/((c**2.0*RNorm**2.0-1.0)**(2.0))*traversedPortion
+    else:
+        Sigma=c**2.0*gFunc(c)/(2*math.pi)*totalMM/(virialRadius**2.0)*(1-np.abs(c**2.0*RNorm**2.0-1.0)**(-0.5)*np.cosh(1.0/(c*RNorm)))/((c**2.0*RNorm**2.0-1.0)**(2.0))*traversedPortion
+    
     #print(numberDensity.shape)
                             #tMin, tMax, SNR, Sfloor, Dd, Dds, Ds, zd, Mset
     LA, UA=zdExclusionCircle(tMin, tMax, SNR, Sfloor, Dd, Dds, Ds, zd, Mset)
@@ -166,7 +191,8 @@ def MFPSingularPopulation(Mset, fdm, burstParams, lensParams):
     #print(Usig**2*numberDensity)
     crossSection=(math.pi*Usig**2)-(math.pi*Lsig**2)
     crossSection=crossSection*np.greater(crossSection,0)
-    return (1.0/(numberDensity*crossSection))
+    OD=Sigma*crossSection
+    return OD
 
 
 def nonLensingProb(burstParams, galaxyParams, Mset, fdm):
@@ -191,13 +217,11 @@ def nonLensingOD(burstParams, galaxyParams, Mset, fdm):
     #Mset=Solar masses (Mass of machos)
     #fdm=MACHO dark matter fraction
     expected=np.zeros([len(Mset),len(fdm)])
-    lensParams=galaxyParams[0:len(galaxyParams)-1]
-    traversed=galaxyParams[len(galaxyParams)-1]
+    lensParams=galaxyParams[0:len(galaxyParams)]
     for i in range(len(fdm)):
         print(fdm[i])
 
-        MFP=MFPSingularPopulation(Mset, fdm[i], burstParams, lensParams)
-        expected[:,i]=traversed*1e3/MFP
+        expected[:,i]=NFWGalaxyOD(Mset, fdm[i], burstParams, lensParams)
     return expected
 
 
