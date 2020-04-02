@@ -168,20 +168,25 @@ def zdExclusionCircle(tMin, tMax, SNR, Sfloor, Dd, Dds, Ds, zd, Mset, plot=False
 #    crossSection=crossSection*np.greater(crossSection,0)
 #    return (1.0/(numberDensity*crossSection))
 
+def gFunc(x):
+    g=1.0/(np.log(1.0+x)-x/(1.0+x))
+    return g
+
 
 def NFWGalaxyOD(Mset, fdm, burstParams, lensParams):
     #mean free path to lensing from a population of black holes with one mass
     Mset=np.asarray(Mset)
     tMin, tMax, SNR, Sfloor=burstParams
-    virialMass, virialRadius, Dd, Dds, Ds, zd, impactP, traversdedPortion=lensParams
+    virialMass, virialRadius, Dd, Dds, Ds, zd, impactP, traversedPortion=lensParams
     totalMM=virialMass*fdm
     RNorm=impactP/virialRadius
     c=7.67
     Rs=virialRadius/c
+
     if impactP>Rs:
-        Sigma=c**2.0*gFunc(c)/(2*math.pi)*totalMM/(virialRadius**2.0)*(1-np.abs(c**2.0*RNorm**2.0-1.0)**(-0.5)*np.cos(1.0/(c*RNorm)))/((c**2.0*RNorm**2.0-1.0)**(2.0))*traversedPortion
+        Sigma=c**2.0*gFunc(c)/(2*math.pi)*totalMM/(virialRadius**2.0)*(1-np.abs(c**2.0*RNorm**2.0-1.0)**(-0.5)*np.arccos(1.0/(c*RNorm)))/((c**2.0*RNorm**2.0-1.0)**(2.0))*traversedPortion
     else:
-        Sigma=c**2.0*gFunc(c)/(2*math.pi)*totalMM/(virialRadius**2.0)*(1-np.abs(c**2.0*RNorm**2.0-1.0)**(-0.5)*np.cosh(1.0/(c*RNorm)))/((c**2.0*RNorm**2.0-1.0)**(2.0))*traversedPortion
+        Sigma=c**2.0*gFunc(c)/(2*math.pi)*totalMM/(virialRadius**2.0)*(1-np.abs(c**2.0*RNorm**2.0-1.0)**(-0.5)*np.arccosh(1.0/(c*RNorm)))/((c**2.0*RNorm**2.0-1.0)**(2.0))*traversedPortion
     
     #print(numberDensity.shape)
                             #tMin, tMax, SNR, Sfloor, Dd, Dds, Ds, zd, Mset
@@ -191,7 +196,7 @@ def NFWGalaxyOD(Mset, fdm, burstParams, lensParams):
     #print(Usig**2*numberDensity)
     crossSection=(math.pi*Usig**2)-(math.pi*Lsig**2)
     crossSection=crossSection*np.greater(crossSection,0)
-    OD=Sigma*crossSection
+    OD=Sigma/Mset*crossSection
     return OD
 
 
