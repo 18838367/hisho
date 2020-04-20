@@ -4,14 +4,20 @@
 import numpy as np
 import scipy as scp
 import scipy.integrate
-from astropy.cosmology import WMAP9 as cosmo, z_at_value
+from astropy.cosmology import Planck18_arXiv_v2 as cosmo, z_at_value
 from astropy import constants as const
 from astropy import units as u
 import matplotlib.pyplot as plt
 import math
 from matplotlib.patches import Rectangle
 
+#This set of functions is used to model lensing from a single compact object along the line 
+#of sight, assumes a schwarzschild metric, reproduces some of the basic laws mentioned in 
+#Munoz, Laha (2018) and Peter Schneiders book Gravitational Lensing
 
+#Calculates the time delay in seconds caused by lensing around a M solar mass compact object
+#at redshift zd that impacts at normalised impact parameter y=beta/theta_E (beta = source angle)
+#(theta_E = einstein radius of lens)
 def timeDelay(M, zd, y):
     G=const.G.value
     c=const.c.value
@@ -23,14 +29,14 @@ def timeDelay(M, zd, y):
 def optimWrapper1(y, M, zd, tCrit):
     return abs(timeDelay(M, zd, y)-tCrit)*1e5
 
-
-#M in solar masses, distances in Gpc, thetaE in arcseconds
+#calculates the einstein radius of a M solar mass compact object
+#M in solar masses, distances in Mpc (angular diameter distances), thetaE in arcseconds
 def eRadius(M, Dd, Dds, Ds):
     thetaE=(4*const.G*const.M_sun*M/(const.c**2)*(Dds/(Dd*Ds*10**6*const.pc)))**(0.5)*(180/math.pi*60*60)
     thetaE=(thetaE.value)*u.arcsec
     return thetaE
 
-
+#ratio of magnifications of two lensed images with primary at y
 def magRatio(y):
     return (y**2+2+(y*(y**2+4)**(0.5)))/(y**2+2-(y*(y**2+4)**(0.5)))
 
@@ -38,7 +44,8 @@ def magRatio(y):
 def optimWrapper2(y, muCrit):
     return abs(magRatio(y)-muCrit)
 
-
+#used by tmu consistency to find y0 that renders matching mag ratios
+#legacy
 def tMag(muCrit):
     y0=1
     optimY=scp.optimize.minimize(optimWrapper2, y0, args=(muCrit), method='L-BFGS-B')
@@ -51,7 +58,9 @@ def ymax(Rf):
     yx=((1+Rf)/(Rf**(0.5))-2)**(0.5)
     return yx
 
-
+#while titled ymin this function just returns the impact parameter associated with tCrit
+#tCrit is normally the lowest observable temporal separation but it can also be the largest
+#giving an alternative value for ymax
 def ymin(M, zd, tCrit): 
     y0=1
     optimY=scp.optimize.minimize(optimWrapper1, y0, args=(M, zd, tCrit), method='L-BFGS-B')
@@ -83,7 +92,9 @@ def yminSet(Mset, zd, tCrit):
             ysmall[i][j]=ymin(Mset[i][j], zd, tCrit)
     return ysmall
 
-
+#produces a plot of the range of parameters with consistent impact parameters for a given 
+#set of observables
+#legacy
 def tMuConsistency(deltaT, mu, zs, tol):
     zdset=np.arange(0.01,zs,0.01)
     #Mset=np.power(10,np.arange(0.03,3,0.03))
@@ -115,7 +126,8 @@ def tMuConsistency(deltaT, mu, zs, tol):
     fig.savefig('Consistency.png')
     #fig.savefig('ConsistencyLog.png')
 
-
+#returns the annulus of impact parameters excluded by null observations in the range tmin-tmax
+#time in seconds, distances in mpc
 def zdExclusionCircle(tMin, tMax, SNR, Sfloor, Dd, Dds, Ds, zd, Mset, plot=False, arcsec=True):
     #Mset=np.power(10,np.arange(0.045,4.5,0.045))
     muMax=SNR/Sfloor
@@ -149,7 +161,7 @@ def zdExclusionCircle(tMin, tMax, SNR, Sfloor, Dd, Dds, Ds, zd, Mset, plot=False
         ret2=y_t[:,1]
     return(ret1, ret2)
 
-
+#This is an old function using a tophat distribution, it also takes in an old set of galParams
 #def MFPSingularPopulation(Mset, fdm, burstParams, lensParams):
 #    #mean free path to lensing from a population of black holes with one mass
 #    Mset=np.asarray(Mset)
@@ -173,21 +185,32 @@ def gFunc(x):
     return g
 
 
+def fFunc(x):
+    if (x>1):
+        f=1.0-2/((x**2.0-1.0)**(0.5))*np.arctan(((x-1.0)/(x+1.0))**(0.5))
+    else:
+        if (x<1):
+            f=1.0-2/((1.0-x**(2.0))**(0.5))*np.arctanh(((1.0-x)/(1.0+x))**(0.5))
+        else:
+            f=0.0   
+    return f
+
+
+#NFW profile of a galactic, this replaces top hat distribution which has been commented out
 def NFWGalaxyOD(Mset, fdm, burstParams, lensParams):
     #mean free path to lensing from a population of black holes with one mass
     Mset=np.asarray(Mset)
     tMin, tMax, SNR, Sfloor=burstParams
-    virialMass, virialRadius, Dd, Dds, Ds, zd, impactP, traversedPortion=lensParams
-    totalMM=virialMass*fdm
-    RNorm=impactP/virialRadius
+    virialMass, Dd, Dds, Ds, zd, impactP, traversedPortion=lensParams
+    rhoCrit=cosmo.critical_density(zd).value/(1000.0*const.M_sun.value)*(100.0*const.pc.value*1000.0)**3.0
+    virialRadius=(virialMass*3.0/(4.0*math.pi*200.0*rhoCrit))**(1.0/3.0)
     c=7.67
+    dChar=200.0*c**3*gFunc(c)/3.0
     Rs=virialRadius/c
-
-    if impactP>Rs:
-        Sigma=c**2.0*gFunc(c)/(2*math.pi)*totalMM/(virialRadius**2.0)*(1-np.abs(c**2.0*RNorm**2.0-1.0)**(-0.5)*np.arccos(1.0/(c*RNorm)))/((c**2.0*RNorm**2.0-1.0)**(2.0))*traversedPortion
-    else:
-        Sigma=c**2.0*gFunc(c)/(2*math.pi)*totalMM/(virialRadius**2.0)*(1-np.abs(c**2.0*RNorm**2.0-1.0)**(-0.5)*np.arccosh(1.0/(c*RNorm)))/((c**2.0*RNorm**2.0-1.0)**(2.0))*traversedPortion
+    rhos=dChar*rhoCrit
+    x=impactP/Rs
     
+    Sigma=2*rhos*Rs/(x**2.0-1.0)*fFunc(x)*fdm
     #print(numberDensity.shape)
                             #tMin, tMax, SNR, Sfloor, Dd, Dds, Ds, zd, Mset
     LA, UA=zdExclusionCircle(tMin, tMax, SNR, Sfloor, Dd, Dds, Ds, zd, Mset)
@@ -198,7 +221,6 @@ def NFWGalaxyOD(Mset, fdm, burstParams, lensParams):
     crossSection=crossSection*np.greater(crossSection,0)
     OD=Sigma/Mset*crossSection
     return OD
-
 
 def nonLensingProb(burstParams, galaxyParams, Mset, fdm):
     #burstParams[tRes (s), tMax-tStart(s), SNRMax, SNRfloor]
