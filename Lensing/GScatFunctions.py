@@ -52,7 +52,7 @@ def tScat(nu, rF, rd):
 #Uses NFW profile with a uniform distribution of dark matter compact objects
 #impactP=impact parameter of source from center of galaxy (kpc)
 def tScatAutoUniform(zL, zS, nu, M, MHalo, impactP):
-    sig=NFWSurfaceDensity(MHalo, impactP, zL)/M
+    sig=NFWSurfaceDensity(MHalo, impactP, zL)/M/1e6  #number/pc2
     rd=rdiffUniform(zL, nu, M, sig)
     lam=const.c.value/nu
     rF=fresnelScale(lam/(const.pc.value), zL, zS)
