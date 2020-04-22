@@ -1,7 +1,7 @@
 import numpy as np
 import scipy as scp
 import scipy.integrate
-from astropy.cosmology import WMAP9 as cosmo, z_at_value
+from astropy.cosmology import Planck18_arXiv_v2 as cosmo, z_at_value
 from astropy import constants as const
 from astropy import units as u
 import matplotlib.pyplot as plt
