@@ -72,14 +72,15 @@ def tScatAutoPowerLaw(zL, zS, nu, MHalo, impactP, L0, beta):
     rho=NFWVolumeDensity(MHalo, impactP, zL)  #Msun/kpc3
     sig=NFWSurfaceDensity(MHalo, impactP, zL) #Msun/kpc2 
     MLOS=sig*L0**2
-    Mcell=rho*L0**3
+    print(MLOS, "MLOS")
+    Mcell=rho*L0**2
     deltaL=MLOS/Mcell
-    print('deltaL : '+str(deltaL) + ' kpc')
     rd=rdiffPowerLaw(zL, nu, Mcell, deltaL, L0, beta) #pc
     lam=const.c.value/nu
     rF=fresnelScale(lam/(const.pc.value), zL, zS) #pc
-    print(rd, rF, lam)
     t=tScat(nu, rF, rd)
+    print(rF, "fresnel")
+    print(rd, 'diffractive')
     return t
 
 #finds the mass of a lens associated with a scattering tail of length t
