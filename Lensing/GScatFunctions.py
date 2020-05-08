@@ -6,6 +6,7 @@ from astropy import constants as const
 from astropy import units as u
 import matplotlib.pyplot as plt
 import math
+import scipy.special as spec
 
 #This function set is based on the treatment of gravitational radiation in macquart 2004
 #effectively it is to model the temporal signature impressed upon the signal by gravitational 
@@ -24,9 +25,50 @@ def rdiffUniform(z, nu, M, sig):
 #beta=index of power law
 #Mcell is the mass in each cell, which is technically equivlent to the sqrt(variance of mass)
 #simply because if the mass is mostly distributed inhomogeneously then the average is zero
-def rdiffPowerLaw(z, nu, Mcell, deltaL, L0, beta):
-    rd=1.8e-4*(L0/10.0)**(1.5)/(nu*(1+z)*((beta-3)/beta)**(0.5)*(Mcell/1e11)*(deltaL/5.0)**(0.5))
+def rdiffPowerLaw(z, nu, Mcell, deltaL, L0, beta, ell0):
+    if (beta==3):
+        print('do not use three')
+    else:
+        if(beta>3):
+            rd=1.8e-4*(L0/10.0)**(1.5)/(nu*(1+z)*((beta-3)/beta)**(0.5)*(Mcell/1e11)*(deltaL/5.0)**(0.5))
+        else:
+            if(beta>0):
+                rd=3.6e2*(L0/10.0)**(2.5)/(((3.0-beta)/beta)**(0.5)*(deltaL/5.0)**(0.5)*nu*(1.0+z)*(Mcell/1e11)*(ell0/0.005)*(L0*1e3/ell0)**(beta/2.0))
+#                rd=(0.003*10**(beta*3))**(-0.5)*((3-beta)/beta)**(-0.5)*(1+z)**(-1)*nu**(-1.0)*(Mcell/5e7)**(-1)*(deltaL/2.0)**(-0.5)*(L0)**((5-beta)/2.0)*(ell0)**((beta-2.0)/2.0)
+            else:
+                print('No dice')
     return rd
+
+def PSFPowerLaw(beta, qmin, qmax, zL, nu, sigmaP, deltaL, r):
+    K=-8*math.pi*(1+zL)/(const.c/nu)*const.G/(const.c**2)
+    if beta<3.0:
+        A=4*math.pi*(3-beta)*qmax**(beta-3)*sigmaP**2
+    else:
+        if beta>3.0:
+            A=4*math.pi*(beta-3)*qmin**(beta-3)*sigmaP**2
+        else:
+            A=0.0
+
+    Dpsi=4*math.pi*K**2*deltaL*A*(qmin**(-2-beta)/(2+beta))*(1+(1+beta/2.0)*spec.gamma(-beta/2.0-1.0)*spec.hyp1f2((-1-beta/2.0), 1, -beta/2.0, -(qmin.value**2.0*r.value**2.0)/4.0)[0])
+    return np.abs(Dpsi)
+
+#the phase structure function as derived by JP 
+#only valid for beta > 3
+def PSFPowerLawJPAbove3(beta, zL, nu, Msig, deltaL, L0, ell0, r):
+    Dpsi=0.003*10**(3*beta)*((beta-3)/beta)*(1+zL)**2.0*nu**2.0*(Msig/5e7)**2.0*(deltaL/2.0)*(L0/1.0)**(beta-5.0)*(ell0/1.0)**(2-beta)*(r/1.0)**2
+    return Dpsi
+
+def PSFPowerLawJPPiece(beta, zL, nu, sigmaP, deltaL, L0, ell0, r):
+    K=-8.0*math.pi*(1.0+zL)/(const.c/nu)*const.G/(const.c**2.0)
+    if beta<3.0:
+        Dpsi=4*math.pi**2.0*(3.0-beta)*deltaL*K**2.0*sigmaP**2.0*r**2.0/beta*ell0**2.0*L0*(L0/ell0)**beta
+    else:
+        if beta>3.0:
+            Dpsi=4.0*math.pi**2.0*(3.0-beta)*deltaL*K**2.0*sigmaP**2.0*r**2.0/beta*-(L0**3.0)
+        else:
+            Dpsi=0.0*u.Hz**2/u.s**2
+    return Dpsi
+
 
 #MHalo=halo mass (solar masses), M=lens mass (solar mass), projA=projected area 
 def numberDensity(MHalo, M, projA):
@@ -68,19 +110,16 @@ def tScatAutoUniform(zL, zS, nu, M, MHalo, impactP):
 #approximates deltaL (medium thickness) as being equal to the factor that makes 
 #Mcell equal to MLOS (the total mass along the line of sight) calculated from the 
 #surface density distribution of an NFW profile.
-def tScatAutoPowerLaw(zL, zS, nu, MHalo, impactP, L0, beta):
+def tScatAutoPowerLaw(zL, zS, nu, MHalo, impactP, L0, beta, ell0):
     rho=NFWVolumeDensity(MHalo, impactP, zL)  #Msun/kpc3
     sig=NFWSurfaceDensity(MHalo, impactP, zL) #Msun/kpc2 
     MLOS=sig*L0**2
-    print(MLOS, "MLOS")
     Mcell=rho*L0**2
     deltaL=MLOS/Mcell
-    rd=rdiffPowerLaw(zL, nu, Mcell, deltaL, L0, beta) #pc
+    rd=rdiffPowerLaw(zL, nu, Mcell, deltaL, L0, beta, ell0) #pc
     lam=const.c.value/nu
     rF=fresnelScale(lam/(const.pc.value), zL, zS) #pc
     t=tScat(nu, rF, rd)
-    print(rF, "fresnel")
-    print(rd, 'diffractive')
     return t
 
 #finds the mass of a lens associated with a scattering tail of length t
