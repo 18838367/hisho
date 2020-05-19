@@ -15,9 +15,9 @@ import scipy.special as spec
 #the diffractive scale for a uniform distribution of compact objects at frequenyc nu, 
 #for an ensemble of uniformly distributed mass M lensing
 #objects with number density per pc^2 of sigma from a screen at redshift z
-#z=redshift, nu=frequency, M=mass (solar masses), sig=number density lensing objects (N/pc^2)
+#z=redshift, nu=frequency, M=mass (solar masses), sig=density lensing objects (Number/pc^3)
 def rdiffUniform(z, nu, M, sig):
-    rd=2.2e2/((1+z)*nu*M*(sig/100.0)**(0.5))
+    rd=2.2e2*(1.0+z)**(-1)*nu**(-1)*M**(-1)*(sig/100.0)**(-0.5)
     return rd
 
 #diffractive scale for a power law distribution of matter
@@ -28,46 +28,18 @@ def rdiffUniform(z, nu, M, sig):
 def rdiffPowerLaw(z, nu, Mcell, deltaL, L0, beta, ell0):
     if (beta==3):
         print('do not use three')
+        rd=0
     else:
         if(beta>3):
-            rd=1.8e-4*(L0/10.0)**(1.5)/(nu*(1+z)*((beta-3)/beta)**(0.5)*(Mcell/1e11)*(deltaL/5.0)**(0.5))
+            rd=1.29e-4*(L0/10.0)**(1.5)/(nu*(1+z)*((beta-3)/beta)**(0.5)*(Mcell/1e11)*(deltaL/10.0)**(0.5))
         else:
             if(beta>0):
-                rd=3.6e2*(L0/10.0)**(2.5)/(((3.0-beta)/beta)**(0.5)*(deltaL/5.0)**(0.5)*nu*(1.0+z)*(Mcell/1e11)*(ell0/0.005)*(L0*1e3/ell0)**(beta/2.0))
+                rd=1.29e2*10.0**(-2*beta)*((3.0-beta)/beta)**(-0.5)*(1.0+z)**(-1)*(nu)**(-1)*(Mcell/1e11)**(-1)*(deltaL/10.0)**(-0.5)*(ell0)**((beta-3.0)/2.0)*(L0/10.0)**((6.0-beta)/2.0)
 #                rd=(0.003*10**(beta*3))**(-0.5)*((3-beta)/beta)**(-0.5)*(1+z)**(-1)*nu**(-1.0)*(Mcell/5e7)**(-1)*(deltaL/2.0)**(-0.5)*(L0)**((5-beta)/2.0)*(ell0)**((beta-2.0)/2.0)
             else:
                 print('No dice')
+                rd=0
     return rd
-
-def PSFPowerLaw(beta, qmin, qmax, zL, nu, sigmaP, deltaL, r):
-    K=-8*math.pi*(1+zL)/(const.c/nu)*const.G/(const.c**2)
-    if beta<3.0:
-        A=4*math.pi*(3-beta)*qmax**(beta-3)*sigmaP**2
-    else:
-        if beta>3.0:
-            A=4*math.pi*(beta-3)*qmin**(beta-3)*sigmaP**2
-        else:
-            A=0.0
-
-    Dpsi=4*math.pi*K**2*deltaL*A*(qmin**(-2-beta)/(2+beta))*(1+(1+beta/2.0)*spec.gamma(-beta/2.0-1.0)*spec.hyp1f2((-1-beta/2.0), 1, -beta/2.0, -(qmin.value**2.0*r.value**2.0)/4.0)[0])
-    return np.abs(Dpsi)
-
-#the phase structure function as derived by JP 
-#only valid for beta > 3
-def PSFPowerLawJPAbove3(beta, zL, nu, Msig, deltaL, L0, ell0, r):
-    Dpsi=0.003*10**(3*beta)*((beta-3)/beta)*(1+zL)**2.0*nu**2.0*(Msig/5e7)**2.0*(deltaL/2.0)*(L0/1.0)**(beta-5.0)*(ell0/1.0)**(2-beta)*(r/1.0)**2
-    return Dpsi
-
-def PSFPowerLawJPPiece(beta, zL, nu, sigmaP, deltaL, L0, ell0, r):
-    K=-8.0*math.pi*(1.0+zL)/(const.c/nu)*const.G/(const.c**2.0)
-    if beta<3.0:
-        Dpsi=4*math.pi**2.0*(3.0-beta)*deltaL*K**2.0*sigmaP**2.0*r**2.0/beta*ell0**2.0*L0*(L0/ell0)**beta
-    else:
-        if beta>3.0:
-            Dpsi=4.0*math.pi**2.0*(3.0-beta)*deltaL*K**2.0*sigmaP**2.0*r**2.0/beta*-(L0**3.0)
-        else:
-            Dpsi=0.0*u.Hz**2/u.s**2
-    return Dpsi
 
 
 #MHalo=halo mass (solar masses), M=lens mass (solar mass), projA=projected area 
@@ -110,15 +82,18 @@ def tScatAutoUniform(zL, zS, nu, M, MHalo, impactP):
 #approximates deltaL (medium thickness) as being equal to the factor that makes 
 #Mcell equal to MLOS (the total mass along the line of sight) calculated from the 
 #surface density distribution of an NFW profile.
+#L0 (kpc) ell0 (pc) impactP (kpc) MHalo (Msun) nu (hz)
 def tScatAutoPowerLaw(zL, zS, nu, MHalo, impactP, L0, beta, ell0):
     rho=NFWVolumeDensity(MHalo, impactP, zL)  #Msun/kpc3
     sig=NFWSurfaceDensity(MHalo, impactP, zL) #Msun/kpc2 
     MLOS=sig*L0**2
-    Mcell=rho*L0**2
-    deltaL=MLOS/Mcell
+    Mcell=rho*L0**3
+    deltaL=MLOS/(rho*L0**2)
+    print(Mcell, deltaL)
     rd=rdiffPowerLaw(zL, nu, Mcell, deltaL, L0, beta, ell0) #pc
     lam=const.c.value/nu
     rF=fresnelScale(lam/(const.pc.value), zL, zS) #pc
+    print(rd, rF)
     t=tScat(nu, rF, rd)
     return t
 
@@ -129,6 +104,22 @@ def MScatUniform(zL, zS, nu, t, MHalo, impactP):
     Sigma=NFWSurfaceDensity(MHalo, impactP, zL)/1e6
     M=(t*2.0*math.pi*(2.2*10**2)**2*100.0)/(rF**2*(1.0+zL)**2*nu*Sigma)
     return M
+
+def weakStrongCheck(freq, MHalo, impactP, zL, zS, L0, ell0, beta):
+    rho=NFWVolumeDensity(MHalo, impactP, zL)  #Msun/kpc3
+    sig=NFWSurfaceDensity(MHalo, impactP, zL) #Msun/kpc2 
+    cohMass=coherenceArea(freq, zL, zS)*sig/1e6
+    MLOS=sig*L0**2
+    Mcell=rho*L0**2
+    deltaL=MLOS/Mcell
+
+    print(rho, sig, cohMass, MLOS, Mcell, deltaL)
+
+    rF=fresnelScale(const.c.value/freq/const.pc.value, 0.3674, 0.47550)
+    rDiffUNI=rdiffUniform(zL, freq, cohMass, sig/cohMass/1e6)
+    rDiffPL=rdiffPowerLaw(zL, freq, Mcell, deltaL, L0, beta, ell0)
+
+    return rF, rDiffUNI, rDiffPL
 
 
 #two funcs below are used by NFW

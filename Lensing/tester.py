@@ -64,3 +64,15 @@ def dpsiApprox(b, qmin, qmax, r, lam, zL, deltaL, sigP):
             print('not three')
             D=0
     return D
+
+def dpsiApproxNorm(b, L0, ell0, r, nu, zL, deltaL, Mcell):
+
+    if b<3:
+        D=6.04976502e-05*10**(4*b)*(3.0-b)/b*(1.0+zL)**2*(nu)**(2)*(Mcell/1e11)**2*(deltaL/10.0)*(r)**2*(ell0)**(3.0-b)*(L0/10.0)**(b-6)
+    else:
+        if b>3:
+            D=60497650.2*(b-3.0)/b*(1.0+zL)**2*(nu)**(2)*(Mcell/1e11)**2*(deltaL/10.0)*(r)**2*(L0/10.0)**(-3)
+        else:
+            print('not three')
+            D=0
+    return D
