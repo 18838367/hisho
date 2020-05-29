@@ -97,6 +97,32 @@ def tScatAutoPowerLaw(zL, zS, nu, MHalo, impactP, L0, beta, ell0):
     t=tScat(nu, rF, rd)
     return t
 
+def surfaceBL0ELL0(beta, L0, zL, zS, nu, MHalo, impactP, tScat):
+    rho=NFWVolumeDensity(MHalo, impactP, zL)  #Msun/kpc3
+    sig=NFWSurfaceDensity(MHalo, impactP, zL) #Msun/kpc2 
+    MLOS=sig*L0**2
+    Mcell=rho*L0**3
+    deltaL=MLOS/(rho*L0**2)
+    lam=const.c.value/nu
+    rF=fresnelScale(lam/(const.pc.value), zL, zS) #pc
+    rd=(1.0/(tScat*2.0*math.pi*nu)*(rF)**2.0)**(0.5)
+
+    if (beta==3):
+        print('do not use three')
+        ell0=0
+    else:
+        if(beta>3):
+            ell0=0
+        else:
+            if(beta>0):
+                ell0=(1.29e2*(rd**(-1.0))*10.0**(-2*beta)*((3.0-beta)/beta)**(-0.5)*(1.0+zL)**(-1)*(nu)**(-1)*(Mcell/1e11)**(-1)*(deltaL/10.0)**(-0.5)*(L0/10.0)**((6.0-beta)/2.0))**(2.0/(3.0-beta))
+#                rd=(0.003*10**(beta*3))**(-0.5)*((3-beta)/beta)**(-0.5)*(1+z)**(-1)*nu**(-1.0)*(Mcell/5e7)**(-1)*(deltaL/2.0)**(-0.5)*(L0)**((5-beta)/2.0)*(ell0)**((beta-2.0)/2.0)
+            else:
+                print('No dice')
+                ell0=0
+    return ell0
+    
+
 #finds the mass of a lens associated with a scattering tail of length t
 def MScatUniform(zL, zS, nu, t, MHalo, impactP):
     lam=const.c.value/nu    
@@ -187,3 +213,6 @@ def integrand2(zL, nu, zS):
 def coherenceMass(zS, nu):
     cN=scipy.integrate.quad(integrand, 0, zS, args=(nu, zS))
     return cN 
+
+def freeStreamingNeutrino(ell0):
+    return 30.0*(28.0*1e6)/(ell0)
