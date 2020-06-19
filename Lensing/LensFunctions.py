@@ -40,6 +40,9 @@ def eRadius(M, Dd, Dds, Ds):
 def magRatio(y):
     return (y**2+2+(y*(y**2+4)**(0.5)))/(y**2+2-(y*(y**2+4)**(0.5)))
 
+#the total magnification of all the images 
+def magTotal(y):
+    return (y**2.0+2.0)/(y*(y**2.0+4.0)**(0.5))
 
 def optimWrapper2(y, muCrit):
     return abs(magRatio(y)-muCrit)
